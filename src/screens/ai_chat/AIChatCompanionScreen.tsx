@@ -1,20 +1,24 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import React, { useState } from "react";
 import {
+  Alert,
+  FlatList,
   Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
-import { FlatList, TextInput } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AText } from "../../components/AText";
 import { BackButton } from "../../components/BackButton";
 import { styles } from "./styles";
 
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 const API_KEY = Constants.expoConfig?.extra?.API_KEY;
 
 type Message = {
@@ -22,10 +26,7 @@ type Message = {
   text: string;
 };
 
-const client = new OpenAI({
-  apiKey: API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const client = new GoogleGenerativeAI(API_KEY);
 
 export function AIChatScreen() {
   const [data, setData] = useState<Message[]>([]);
@@ -39,9 +40,28 @@ export function AIChatScreen() {
   ];
 
 
- const handleSend = async (customPrompt?: string) => {
+  const handleSend = async (customPrompt?: string) => {
     const promptToSend = customPrompt || textInput;
     if (!promptToSend.trim()) return;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const usageData = await AsyncStorage.getItem('ai_daily_usage');
+      let usage = usageData ? JSON.parse(usageData) : { date: today, count: 0 };
+
+      if (usage.date !== today) {
+        usage = { date: today, count: 0 };
+      }
+
+      if (usage.count >= 5) {
+        Alert.alert("Limit Reached", "You have used your 5 free AI requests for today.");
+        return;
+      }
+
+      await AsyncStorage.setItem('ai_daily_usage', JSON.stringify({ date: today, count: usage.count + 1 }));
+    } catch (error) {
+      console.error("Error checking rate limit:", error);
+    }
 
     const userMessage: Message = { type: "user", text: promptToSend };
     setData((prev) => [...prev, userMessage]);
@@ -135,16 +155,14 @@ Note: Car treated as liability due to depreciation (COE ~S$100K, annual deprecia
 `;
 
     try {
-      const response = await client.responses.create({
-        model: "gpt-4o-mini",
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: promptToSend },
-        ],
-      });
+      const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const prompt = `${systemPrompt}\n\nUser: ${promptToSend}`;
 
-      const botReply =
-        response.output_text ?? "Sorry, I could not generate a response.";
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const botReply = response.text() ?? "Sorry, I could not generate a response.";
+
+
       const botMessage: Message = { type: "bot", text: botReply };
       setData((prev) => [...prev, botMessage]);
     } catch (error) {
@@ -159,29 +177,29 @@ Note: Car treated as liability due to depreciation (COE ~S$100K, annual deprecia
     }
   };
 
-return (
+  return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? -15 : 0} 
+      keyboardVerticalOffset={Platform.OS === "ios" ? -15 : 0}
     >
-      <SafeAreaView style={styles.safe} edges={["top","left", "right"]}>
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <BackButton />
-              <View>
-                <AText style={styles.title}>Intelligent Companion</AText>
-                <AText style={styles.subtitle}>AI Core</AText>
-              </View>
-            </View>
-            <View style={styles.headerBadge}>
-                <Image
-                  source={require("../../../assets/images/ai-chat.png")} 
-                  style={{ width: 24, height: 24, borderRadius: 4 }} 
-                  resizeMode="contain"
-                />
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <BackButton />
+            <View>
+              <AText style={styles.title}>Intelligent Companion</AText>
+              <AText style={styles.subtitle}>AI Core</AText>
             </View>
           </View>
+          <View style={styles.headerBadge}>
+            <Image
+              source={require("../../../assets/images/ai-chat.png")}
+              style={{ width: 24, height: 24, borderRadius: 4 }}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
 
         <FlatList
           data={data}
@@ -205,25 +223,25 @@ return (
               </View>
             ) : null
           }
-        />        
+        />
 
-          <View style={styles.quickPromptView}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.scrollViewContainer}
-            >
-              {quickPrompts.map((prompt, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.quickPrompt}
-                  onPress={() => handleSend(prompt)}
-                >
-                  <AText style={styles.subtitle}>{prompt}</AText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+        <View style={styles.quickPromptView}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.scrollViewContainer}
+          >
+            {quickPrompts.map((prompt, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.quickPrompt}
+                onPress={() => handleSend(prompt)}
+              >
+                <AText style={styles.subtitle}>{prompt}</AText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
 
 

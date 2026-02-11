@@ -6,13 +6,16 @@
     "baseUrl": ".",
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "app/aicompanionchat.tsk"  ]
+    "expo-env.d.ts",
+    "app/aicompanionchat.tsx"
+  ]
 }
