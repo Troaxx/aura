@@ -6,7 +6,6 @@ export default ({ config }) => {
       "expo-web-browser"
     ],
     extra: {
-      API_KEY: process.env.API_KEY,
     },
   };
 };

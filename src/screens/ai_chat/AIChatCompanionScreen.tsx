@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import React, { useState } from "react";
 import {
   Alert,
@@ -19,14 +18,14 @@ import { styles } from "./styles";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = Constants.expoConfig?.extra?.API_KEY;
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 type Message = {
   type: "user" | "bot";
   text: string;
 };
 
-const client = new GoogleGenerativeAI(API_KEY);
+const client = new GoogleGenerativeAI(API_KEY || "");
 
 export function AIChatScreen() {
   const [data, setData] = useState<Message[]>([]);
